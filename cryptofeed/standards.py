@@ -10,15 +10,17 @@ between exchanges. These include trading pairs, timestamps, and
 data channel names
 '''
 import logging
+
 import pandas as pd
 
-from cryptofeed.defines import (L2_BOOK, L3_BOOK, TRADES, TICKER, OPEN_INTEREST, VOLUME, FUNDING, LIQUIDATIONS, UNSUPPORTED, BITFINEX, GEMINI, BITMAX,
-                                POLONIEX, HITBTC, BITSTAMP, COINBASE, BITMEX, KRAKEN, KRAKEN_FUTURES, BINANCE, EXX, HUOBI, HUOBI_DM, OKCOIN,
-                                OKEX, COINBENE, BYBIT, FTX, FTX_US, TRADES_SWAP, TICKER_SWAP, L2_BOOK_SWAP, TRADES_FUTURES, TICKER_FUTURES, L2_BOOK_FUTURES,
-                                LIMIT, MARKET, FILL_OR_KILL, IMMEDIATE_OR_CANCEL, MAKER_OR_CANCEL, DERIBIT, BITTREX, BITCOINCOM, BINANCE_US,
-                                BINANCE_JERSEY, BINANCE_FUTURES, UPBIT, BLOCKCHAIN)
+from cryptofeed.defines import (BINANCE, BINANCE_FUTURES, BINANCE_JERSEY, BINANCE_US, BITCOINCOM, BITFINEX, BITMAX, BITMEX,
+                                BITSTAMP, BITTREX, BLOCKCHAIN, BYBIT, COINBASE, COINBENE, DERIBIT, EXX, FILL_OR_KILL, FTX,
+                                FTX_US, FUNDING, GEMINI, HITBTC, HUOBI, HUOBI_DM, HUOBI_SWAP, IMMEDIATE_OR_CANCEL, KRAKEN,
+                                KRAKEN_FUTURES, L2_BOOK, L2_BOOK_FUTURES, L2_BOOK_SWAP, L3_BOOK, LIMIT, LIQUIDATIONS,
+                                MAKER_OR_CANCEL, MARKET, OKCOIN, OKEX, OPEN_INTEREST, POLONIEX, TICKER, TICKER_FUTURES,
+                                TICKER_SWAP, TRADES, TRADES_FUTURES, TRADES_SWAP, UNSUPPORTED, UPBIT, VOLUME)
+from cryptofeed.exceptions import UnsupportedDataFeed, UnsupportedTradingOption, UnsupportedTradingPair
 from cryptofeed.pairs import gen_pairs
-from cryptofeed.exceptions import UnsupportedTradingPair, UnsupportedDataFeed, UnsupportedTradingOption
 
 
 LOG = logging.getLogger('feedhandler')
@@ -68,7 +70,7 @@ def pair_exchange_to_std(pair):
 def timestamp_normalize(exchange, ts):
     if exchange in {BITMEX, COINBASE, HITBTC, OKCOIN, OKEX, BYBIT, FTX, FTX_US, BITCOINCOM, BLOCKCHAIN}:
         return pd.Timestamp(ts).timestamp()
-    elif exchange in {HUOBI, HUOBI_DM, BITFINEX, COINBENE, DERIBIT, BINANCE, BINANCE_US, BINANCE_JERSEY, BINANCE_FUTURES, GEMINI, BITTREX, BITMAX, KRAKEN_FUTURES, UPBIT}:
+    elif exchange in {HUOBI, HUOBI_DM, HUOBI_SWAP, BITFINEX, COINBENE, DERIBIT, BINANCE, BINANCE_US, BINANCE_JERSEY, BINANCE_FUTURES, GEMINI, BITTREX, BITMAX, KRAKEN_FUTURES, UPBIT}:
         return ts / 1000.0
     elif exchange in {BITSTAMP}:
         return ts / 1000000.0
@@ -93,6 +95,7 @@ _feed_to_exchange_map = {
         EXX: 'ENTRUST_ADD',
         HUOBI: 'depth.step0',
         HUOBI_DM: 'depth.step0',
+        HUOBI_SWAP: 'depth.step0',
         OKCOIN: 'spot/depth_l2_tbt',
         OKEX: 'spot/depth_l2_tbt',
         COINBENE: L2_BOOK,
@@ -150,6 +153,7 @@ _feed_to_exchange_map = {
         EXX: 'TRADE',
         HUOBI: 'trade.detail',
         HUOBI_DM: 'trade.detail',
+        HUOBI_SWAP: 'trade.detail',
         OKCOIN: 'spot/trade',
         OKEX: 'spot/trade',
         COINBENE: TRADES,
@@ -198,6 +202,7 @@ _feed_to_exchange_map = {
     FUNDING: {
         BITMEX: 'funding',
         BITFINEX: 'trades',
+        BINANCE_FUTURES: 'markPrice',
         KRAKEN_FUTURES: 'ticker',
         DERIBIT: 'ticker',
         OKEX: 'swap/funding_rate',
@@ -295,6 +300,7 @@ def feed_to_exchange(exchange, feed):
 
     ret = _feed_to_exchange_map[feed][exchange]
     if ret == UNSUPPORTED:
-        LOG.error(f"{feed} is not supported on {exchange}")
-        raise UnsupportedDataFeed(f"{feed} is not supported on {exchange}")
+        exception = UnsupportedDataFeed(f"{feed} is not supported on {exchange}")
+        LOG.error("Raise %r", exception)
+        raise exception
     return ret
